@@ -4,68 +4,68 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PacketLight Portal</title>
-    <link rel="stylesheet" href="/static/portal.css" />
+    <!-- Cache-bust in dev (your main.py also does no-cache headers) -->
+    <link rel="stylesheet" href="/static/portal.css?v=1" />
   </head>
 
   <body>
-    <!-- ✅ Floating PacketLight Logo (top-left) -->
-    <a class="portal-logo" href="/" title="PacketLight Portal">
-      <img src="/static/images/packetlight_logo.png" alt="PacketLight Logo" />
-    </a>
+    <!-- Floating logo -->
+    <div class="portal-logo" aria-label="PacketLight">
+      <img src="/static/images/packetlight_logo.png?v=1" alt="PacketLight Logo" />
+    </div>
 
     <div class="wrap">
       <header class="top">
         <div>
           <div class="title">PacketLight Portal</div>
-          <div class="subtitle">Company Knowledge & Tools</div>
+          <div class="subtitle">Company tools & quick links</div>
         </div>
       </header>
 
       <main class="grid">
-        <!-- External redirects -->
         <a class="tile" href="/go/latency">
           <div class="tileTitle">Latency</div>
-          <div class="tileDesc">• Latency dashboard</div>
+          <div class="tileDesc">Latency dashboard</div>
         </a>
 
         <a class="tile" href="/go/aps">
           <div class="tileTitle">APS</div>
-          <div class="tileDesc">• APS dashboard</div>
+          <div class="tileDesc">APS dashboard</div>
         </a>
 
         <a class="tile" href="/assembly">
           <div class="tileTitle">Assembly</div>
-          <div class="tileDesc">(content later)</div>
+          <div class="tileDesc">Internal page (content later)</div>
         </a>
 
         <a class="tile" href="/hw-tools">
           <div class="tileTitle">HW Tools</div>
-          <div class="tileDesc">• Documentation Hub Download</div>
+          <div class="tileDesc">Internal page (content later)</div>
         </a>
 
         <a class="tile" href="/requirements-docs">
           <div class="tileTitle">Requirements Documents</div>
-          <div class="tileDesc">(content later)</div>
+          <div class="tileDesc">Internal page (content later)</div>
         </a>
 
         <a class="tile" href="/ga-versions">
           <div class="tileTitle">GA Versions</div>
-          <div class="tileDesc">(content later)</div>
+          <div class="tileDesc">Internal page (content later)</div>
         </a>
 
         <a class="tile" href="/sw-test-progress">
           <div class="tileTitle">SW Test Progress</div>
-          <div class="tileDesc">(content later)</div>
+          <div class="tileDesc">Internal page (content later)</div>
         </a>
 
         <a class="tile" href="/products-lab">
-          <div class="tileTitle">Products - Alpha LAB</div>
-          <div class="tileDesc">• List of IP's per Device</div>
+          <div class="tileTitle">Products - LAB</div>
+          <div class="tileDesc">Internal page (content later)</div>
         </a>
       </main>
 
       <footer class="footer">
-        <span class="muted">Contact: Yuval Dahan</span>
+        <span class="muted">Contact: Yuval Dahan.</span>
       </footer>
     </div>
   </body>

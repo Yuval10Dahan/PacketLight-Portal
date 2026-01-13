@@ -20,7 +20,6 @@ html {
   background-repeat: no-repeat;
   background-attachment: fixed;
 
-  /* ✅ Make the background “pop” */
   filter: contrast(1.12) saturate(1.20);
 }
 
@@ -38,10 +37,7 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
-
-  /* was 0.45 — too dark */
   background: rgba(0, 0, 0, 0.12);
-
   pointer-events: none;
   z-index: 0;
 }
@@ -58,9 +54,9 @@ body::before {
 /* Header */
 .top {
   display: flex;
-  justify-content: center;   /* ✅ center horizontally */
-  align-items: center;       /* ✅ center vertically */
-  text-align: center;        /* ✅ center text */
+  justify-content: space-between;
+  align-items: end;
+  gap: 16px;
   padding: 18px 18px;
 
   border: 1px solid var(--border);
@@ -179,19 +175,18 @@ body::before {
   left: 28px;
   z-index: 5;
 
-  padding: 14px 18px;
-  border-radius: 14px;
+  padding: 20px 24px;
+  border-radius: 16px;
 
   border: 1px solid var(--border);
   background: rgba(10, 16, 32, 0.30);
   backdrop-filter: blur(12px);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
-
-  text-decoration: none;
 }
 
+/* Make the logo BIGGER */
 .portal-logo img {
-  height: 140px;
+  height: 140px;   /* ⬅️ increase/decrease this */
   width: auto;
   display: block;
 }
