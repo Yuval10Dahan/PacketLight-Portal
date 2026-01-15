@@ -8,27 +8,28 @@
   </head>
 
   <body>
-    <!-- ✅ Floating PacketLight Logo (top-left) -->
-    <a class="portal-logo" href="/" title="PacketLight Portal">
-      <img src="/static/images/packetlight_logo.png" alt="PacketLight Logo" />
-    </a>
-
     <div class="wrap">
-      <header class="top">
-        <div>
+      <header class="top portal-header">
+        <img
+          src="/static/images/packetlight_logo.png"
+          alt="PacketLight Logo"
+          class="header-logo"
+        />
+
+        <div class="header-text">
           <div class="title">PacketLight Portal</div>
           <div class="subtitle">Company Knowledge & Tools</div>
         </div>
       </header>
 
       <main class="grid">
-        <!-- External redirects -->
-        <a class="tile" href="/go/latency">
+        <!-- External redirects (open in new tab) -->
+        <a class="tile" href="/go/latency" target="_blank" rel="noopener noreferrer">
           <div class="tileTitle">Latency</div>
           <div class="tileDesc">• Latency dashboard</div>
         </a>
 
-        <a class="tile" href="/go/aps">
+        <a class="tile" href="/go/aps" target="_blank" rel="noopener noreferrer">
           <div class="tileTitle">APS</div>
           <div class="tileDesc">• APS dashboard</div>
         </a>
@@ -43,9 +44,10 @@
           <div class="tileDesc">• Documentation Hub Download</div>
         </a>
 
+        <!-- SWAPPED meanings -->
         <a class="tile" href="/requirements-docs">
-          <div class="tileTitle">Requirements Documents</div>
-          <div class="tileDesc">(content later)</div>
+          <div class="tileTitle">Requirements</div>
+          <div class="tileDesc">• Requirement Document</div>
         </a>
 
         <a class="tile" href="/ga-versions">
@@ -61,6 +63,14 @@
         <a class="tile" href="/products-lab">
           <div class="tileTitle">Products - Alpha LAB</div>
           <div class="tileDesc">• List of IP's per Device</div>
+        </a>
+
+        <!-- SWAPPED meanings -->
+        <a class="tile" href="/feature-version-tracking">
+          <div class="tileTitle">Feature - Version Tracking</div>
+          <div class="tileDesc">• Product Tracking Document</div>
+          <div class="tileDesc">• Version Roadmap</div>
+          <div class="tileDesc">• Supported Features</div>
         </a>
       </main>
 

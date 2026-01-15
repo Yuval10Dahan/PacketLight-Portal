@@ -20,6 +20,7 @@ html {
   background-repeat: no-repeat;
   background-attachment: fixed;
 
+  /* ✅ Make the background “pop” */
   filter: contrast(1.12) saturate(1.20);
 }
 
@@ -37,7 +38,10 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
+
+  /* was 0.45 — too dark */
   background: rgba(0, 0, 0, 0.12);
+
   pointer-events: none;
   z-index: 0;
 }
@@ -54,9 +58,9 @@ body::before {
 /* Header */
 .top {
   display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 16px;
+  justify-content: center;   /* ✅ center horizontally */
+  align-items: center;       /* ✅ center vertically */
+  text-align: center;        /* ✅ center text */
   padding: 18px 18px;
 
   border: 1px solid var(--border);
@@ -76,6 +80,25 @@ body::before {
 .subtitle {
   margin-top: 6px;
   color: var(--muted);
+}
+
+/* ✅ Header with embedded logo (inside the rectangle) */
+.portal-header {
+  position: relative;          /* enables absolute logo */
+}
+
+.header-logo {
+  position: absolute;
+  left: 22px;
+  height: 64px;
+  width: auto;
+  display: block;
+}
+
+.header-text {
+  text-align: center;
+  padding-left: 45px;          /* prevent text overlapping logo */
+  padding-right: 18px;
 }
 
 /* Grid */
@@ -163,30 +186,4 @@ body::before {
   padding: 10px 2px;
   font-size: 12px;
   color: rgba(233, 238, 252, 0.75);
-}
-
-/* =========================
-   PacketLight floating logo
-   ========================= */
-
-.portal-logo {
-  position: fixed;
-  top: 28px;
-  left: 28px;
-  z-index: 5;
-
-  padding: 20px 24px;
-  border-radius: 16px;
-
-  border: 1px solid var(--border);
-  background: rgba(10, 16, 32, 0.30);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
-}
-
-/* Make the logo BIGGER */
-.portal-logo img {
-  height: 140px;   /* ⬅️ increase/decrease this */
-  width: auto;
-  display: block;
 }

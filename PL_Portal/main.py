@@ -6,9 +6,9 @@ import datetime
 import subprocess
 import sys
 from collections import defaultdict
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 
-app = FastAPI(title="PacketLight Company Portal")
+app = fastapi_app = FastAPI(title="PacketLight Company Portal")
 
 # ----------------------------
 # URLs
@@ -36,6 +36,7 @@ LAB_NETWORKS = [
 
 # ----------------------------
 # Requirements Docs (CONFIG)
+# (THIS WILL NOW BELONG TO /feature-version-tracking)
 # ----------------------------
 REQ_SELECT_VALUE = "__select__"
 
@@ -53,14 +54,10 @@ REQ_HEADLINES = [
     "Future Version",
 ]
 
-# ✅ You will replace this list later with your fixed list of devices
 REQ_DEVICES = [
     "PL-4000T",
-    # add more later...
 ]
 
-# ✅ Content placeholders (you will fill later)
-# Structure: content[device][headline] = html string
 REQ_CONTENT: Dict[str, Dict[str, str]] = {
     "PL-4000T": {
         "Change log": """
@@ -91,6 +88,29 @@ REQ_CONTENT: Dict[str, Dict[str, str]] = {
         "Modern Version - Feature supported": "<div class='muted'>(placeholder)</div>",
         "Future Version": "<div class='muted'>(placeholder)</div>",
     }
+}
+
+# ----------------------------
+# Feature - Version Tracking (CONFIG)
+# (THIS WILL NOW BELONG TO /requirements-docs)
+# ----------------------------
+FEATURE_SELECT_VALUE = "__select__"
+
+FEATURE_TRACKING_DEVICES = [
+    "PL-1000IL",
+]
+
+FEATURE_TRACKING_DOC_URLS: Dict[str, str] = {
+    "PL-1000IL": "https://example.com/replace-me/pl-1000il-feature-version-tracking.docx",
+}
+
+# ----------------------------
+# Products-LAB cache (in-memory)
+# ----------------------------
+PRODUCTS_LAB_CACHE: Dict[str, Any] = {
+    "data": {},          # Dict[str, List[str]]
+    "scanned_at": None,  # datetime.datetime or None
+    "error": None,       # str or None
 }
 
 # ----------------------------
@@ -165,6 +185,21 @@ def run_snmp_scan(network: str) -> List[Tuple[str, str]]:
     return rows
 
 # ----------------------------
+# Products-LAB scanning logic
+# ----------------------------
+def perform_products_lab_scan() -> Dict[str, List[str]]:
+    grouped: Dict[str, List[str]] = defaultdict(list)
+
+    for net in LAB_NETWORKS:
+        for ip, product in run_snmp_scan(net):
+            grouped[product].append(ip)
+
+    for product in grouped:
+        grouped[product].sort(key=lambda x: tuple(map(int, x.split("."))))
+
+    return dict(grouped)
+
+# ----------------------------
 # ROUTES
 # ----------------------------
 @app.get("/")
@@ -187,11 +222,129 @@ def assembly_page():
     return page_html("Assembly", "<p class='muted'>Placeholder page.</p>")
 
 
-# ----------------------------
-# REQUIREMENTS DOCUMENTS (UI)
-# ----------------------------
+# ============================================================
+# SWAP #1:
+# /requirements-docs  -> NOW shows "download doc" UI (old FVT)
+# ============================================================
 @app.get("/requirements-docs")
 def requirements_docs_page():
+    body = f"""
+      <p class="muted">
+        Select a device to download its <b>Requirements Document</b> file.
+      </p>
+
+      <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-top:12px;">
+        <div style="display:flex; flex-direction:column; gap:6px; min-width:260px;">
+          <span class="muted" style="font-size:12px;">Device</span>
+          <select id="reqDlDevice" class="btn"></select>
+        </div>
+
+        <button id="reqDlBtn" class="btn" type="button" style="cursor:pointer;" disabled>
+          ⬇ Download
+        </button>
+      </div>
+
+      <p class="muted" id="reqDlStatus" style="margin-top:12px;"></p>
+
+      <script>
+        const SELECT_VALUE = "{FEATURE_SELECT_VALUE}";
+        const deviceSel = document.getElementById("reqDlDevice");
+        const dlBtn = document.getElementById("reqDlBtn");
+        const status = document.getElementById("reqDlStatus");
+
+        function setStatus(txt) {{
+          status.textContent = txt || "";
+        }}
+
+        function populateDevices(devices) {{
+          deviceSel.innerHTML = "";
+
+          const opt0 = document.createElement("option");
+          opt0.value = SELECT_VALUE;
+          opt0.textContent = "Select";
+          deviceSel.appendChild(opt0);
+
+          (devices || []).forEach(d => {{
+            const opt = document.createElement("option");
+            opt.value = d;
+            opt.textContent = d;
+            deviceSel.appendChild(opt);
+          }});
+
+          deviceSel.value = SELECT_VALUE;
+          dlBtn.disabled = true;
+          setStatus("Select a device.");
+        }}
+
+        fetch("/api/requirements-docs/devices")
+          .then(r => r.json())
+          .then(devices => {{
+            populateDevices(devices);
+          }})
+          .catch(() => {{
+            setStatus("Failed to load devices.");
+          }});
+
+        deviceSel.addEventListener("change", () => {{
+          const dev = deviceSel.value;
+          if (dev === SELECT_VALUE) {{
+            dlBtn.disabled = true;
+            setStatus("Select a device.");
+            return;
+          }}
+          dlBtn.disabled = false;
+          setStatus("Ready to download: " + dev);
+        }});
+
+        dlBtn.addEventListener("click", () => {{
+          const dev = deviceSel.value;
+          if (!dev || dev === SELECT_VALUE) return;
+
+          setStatus("Starting download for: " + dev);
+          window.location.href = "/api/requirements-docs/download?device=" + encodeURIComponent(dev);
+        }});
+      </script>
+    """
+    return page_html("Requirements", body)
+
+
+# ----------------------------
+# SWAP #1 API:
+# /api/requirements-docs/*  -> was FVT api
+# ----------------------------
+@app.get("/api/requirements-docs/devices")
+def req_docs_devices():
+    return JSONResponse(sorted(FEATURE_TRACKING_DEVICES))
+
+
+@app.get("/api/requirements-docs/download")
+def req_docs_download(device: str):
+    if not device or device == FEATURE_SELECT_VALUE:
+        raise HTTPException(400, "Missing device")
+
+    url = FEATURE_TRACKING_DOC_URLS.get(device)
+    if not url:
+        raise HTTPException(404, f"No document URL configured for device: {device}")
+
+    return RedirectResponse(url)
+
+
+@app.get("/ga-versions")
+def ga_versions_page():
+    return page_html("GA Versions", "<p class='muted'>Placeholder page.</p>")
+
+
+@app.get("/sw-test-progress")
+def sw_test_progress_page():
+    return page_html("SW Test Progress", "<p class='muted'>Placeholder page.</p>")
+
+
+# ============================================================
+# SWAP #2:
+# /feature-version-tracking -> NOW shows old Requirements UI
+# ============================================================
+@app.get("/feature-version-tracking")
+def feature_version_tracking_page():
     body = f"""
     <p class="muted">Select a device and a headline to view the summarized content.</p>
 
@@ -274,8 +427,7 @@ def requirements_docs_page():
         headSel.disabled = false;
       }}
 
-      // Load devices
-      fetch("/api/requirements/devices")
+      fetch("/api/feature-version-tracking/devices")
         .then(r => r.json())
         .then(devices => {{
           populateDevices(devices);
@@ -288,19 +440,16 @@ def requirements_docs_page():
       deviceSel.addEventListener("change", () => {{
         const dev = deviceSel.value;
 
-        // If Select -> clear everything
         if (dev === SELECT_VALUE) {{
           resetAll();
           return;
         }}
 
-        // Load headlines for chosen device
         setContent("<div class='muted'>Select a headline.</div>");
-        fetch("/api/requirements/headlines?device=" + encodeURIComponent(dev))
+        fetch("/api/feature-version-tracking/headlines?device=" + encodeURIComponent(dev))
           .then(r => r.json())
           .then(headlines => {{
             populateHeadlines(headlines);
-            // keep content empty until headline chosen
             setContent("<div class='muted'>Select a headline.</div>");
           }})
           .catch(() => {{
@@ -313,14 +462,13 @@ def requirements_docs_page():
         const dev = deviceSel.value;
         const h = headSel.value;
 
-        // If Select -> clear content
         if (h === SELECT_VALUE) {{
           setContent("<div class='muted'>Select a headline.</div>");
           return;
         }}
 
         setContent("<div class='muted'>Loading...</div>");
-        fetch("/api/requirements/content?device=" + encodeURIComponent(dev) + "&headline=" + encodeURIComponent(h))
+        fetch("/api/feature-version-tracking/content?device=" + encodeURIComponent(dev) + "&headline=" + encodeURIComponent(h))
           .then(r => r.json())
           .then(obj => {{
             setContent(obj.html || "<div class='muted'>No content.</div>");
@@ -331,30 +479,27 @@ def requirements_docs_page():
       }});
     </script>
     """
-    return page_html("Requirements Documents", body)
+    return page_html("Feature - Version Tracking", body)
 
 
 # ----------------------------
-# REQUIREMENTS DOCUMENTS (API)
+# SWAP #2 API:
+# /api/feature-version-tracking/* -> was Requirements api
 # ----------------------------
-@app.get("/api/requirements/devices")
-def req_devices():
-    # you can sort if you want
+@app.get("/api/feature-version-tracking/devices")
+def fvt_devices():
     return JSONResponse(sorted(REQ_DEVICES))
 
 
-@app.get("/api/requirements/headlines")
-def req_headlines(device: str):
+@app.get("/api/feature-version-tracking/headlines")
+def fvt_headlines(device: str):
     if not device or device == REQ_SELECT_VALUE:
         return JSONResponse([])
-
-    # For now: always same headlines list (as you requested)
-    # Later you can filter per device if needed.
     return JSONResponse(REQ_HEADLINES)
 
 
-@app.get("/api/requirements/content")
-def req_content(device: str, headline: str):
+@app.get("/api/feature-version-tracking/content")
+def fvt_content(device: str, headline: str):
     if not device or device == REQ_SELECT_VALUE:
         return JSONResponse({"html": ""})
     if not headline or headline == REQ_SELECT_VALUE:
@@ -364,95 +509,196 @@ def req_content(device: str, headline: str):
     return JSONResponse({"html": html})
 
 
-@app.get("/ga-versions")
-def ga_versions_page():
-    return page_html("GA Versions", "<p class='muted'>Placeholder page.</p>")
-
-
-@app.get("/sw-test-progress")
-def sw_test_progress_page():
-    return page_html("SW Test Progress", "<p class='muted'>Placeholder page.</p>")
-
 # ----------------------------
 # PRODUCTS - LAB PAGE (UI)
 # ----------------------------
 @app.get("/products-lab")
 def products_lab_page():
     body = """
-    <p class="muted" id="status">Scanning Alpha Lab devices - Wait around 20 seconds...</p>
+        <!-- Row 1: Refresh + Last scan (same line) -->
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <button id="refreshBtn" class="btn" type="button" style="cursor:pointer;">
+            📡 Scan Devices
+            </button>
 
-    <select id="productSelect" class="btn" style="display:none; margin-bottom:12px;"></select>
+            <span class="muted" id="meta" style="font-size:12px;"></span>
+        </div>
 
-    <ul id="ipList" style="margin-top:10px;"></ul>
+        <!-- Row 2: Status text (Select product / Scanning / Errors) -->
+        <p class="muted" id="status" style="margin-top:10px; margin-bottom:8px;">
+            Loading last scan...
+        </p>
 
-    <script>
-      const SELECT_PLACEHOLDER_VALUE = "__select__";
+        <!-- Row 3: Dropdown -->
+        <select id="productSelect" class="btn" style="display:none; margin-bottom:12px;"></select>
 
-      function renderIPs(data) {
-        const select = document.getElementById('productSelect');
-        const list = document.getElementById('ipList');
-        const chosen = select.value;
+        <!-- Drilldown list -->
+        <ul id="ipList" style="margin-top:10px;"></ul>
 
-        list.innerHTML = '';
+        <script>
+            const SELECT_PLACEHOLDER_VALUE = "__select__";
 
-        if (chosen === SELECT_PLACEHOLDER_VALUE) return;
+            function renderIPs(data) {
+            const select = document.getElementById('productSelect');
+            const list = document.getElementById('ipList');
+            const chosen = select.value;
 
-        (data[chosen] || []).forEach(ip => {
-          const li = document.createElement('li');
-          li.textContent = ip;
-          list.appendChild(li);
-        });
-      }
+            list.innerHTML = '';
+            if (chosen === SELECT_PLACEHOLDER_VALUE) return;
 
-      fetch('/api/products-lab/scan')
-        .then(r => r.json())
-        .then(data => {
-          const status = document.getElementById('status');
-          const select = document.getElementById('productSelect');
+            (data[chosen] || []).forEach(ip => {
+                const li = document.createElement('li');
+                li.textContent = ip;
+                list.appendChild(li);
+            });
+            }
 
-          status.textContent = 'Select product:';
-          select.style.display = 'inline-block';
+            function populateProducts(data) {
+            const status = document.getElementById('status');
+            const select = document.getElementById('productSelect');
 
-          const placeholder = document.createElement('option');
-          placeholder.value = SELECT_PLACEHOLDER_VALUE;
-          placeholder.textContent = 'Select';
-          placeholder.selected = true;
-          select.appendChild(placeholder);
+            select.innerHTML = "";
 
-          Object.keys(data).sort().forEach(product => {
-            const opt = document.createElement('option');
-            opt.value = product;
-            opt.textContent = product;
-            select.appendChild(opt);
-          });
+            const keys = Object.keys(data || {});
+            if (!keys.length) {
+                select.style.display = "none";
+                document.getElementById('ipList').innerHTML = "";
+                status.textContent = "No cached scans yet.";
+                return;
+            }
 
-          select.onchange = () => renderIPs(data);
+            status.textContent = "Select product:";
+            select.style.display = "inline-block";
 
-          select.value = SELECT_PLACEHOLDER_VALUE;
-          renderIPs(data);
-        })
-        .catch(err => {
-          document.getElementById('status').textContent = 'Scan failed';
-        });
-    </script>
-    """
+            const placeholder = document.createElement('option');
+            placeholder.value = SELECT_PLACEHOLDER_VALUE;
+            placeholder.textContent = 'Select';
+            placeholder.selected = true;
+            select.appendChild(placeholder);
+
+            keys.sort().forEach(product => {
+                const opt = document.createElement('option');
+                opt.value = product;
+                opt.textContent = product;
+                select.appendChild(opt);
+            });
+
+            select.onchange = () => renderIPs(data);
+            select.value = SELECT_PLACEHOLDER_VALUE;
+            renderIPs(data);
+            }
+
+            function setMeta(scannedAt, err) {
+            const meta = document.getElementById('meta');
+            if (!scannedAt && !err) {
+                meta.textContent = "";
+                return;
+            }
+
+            let txt = scannedAt ? ("Last scan: " + scannedAt) : "";
+            if (err) txt += (txt ? " • " : "") + ("Error: " + err);
+            meta.textContent = txt;
+            }
+
+            function loadCached() {
+            const status = document.getElementById('status');
+            status.textContent = "Loading last scan...";
+            setMeta("", "");
+
+            fetch('/api/products-lab/cached')
+                .then(r => r.json())
+                .then(obj => {
+                setMeta(obj.scanned_at, obj.error);
+
+                if (obj.error) {
+                    status.textContent = "Last scan had an error. You can Refresh.";
+                }
+
+                populateProducts(obj.data || {});
+                })
+                .catch(() => {
+                status.textContent = "Failed to load cached scan.";
+                setMeta("", "");
+                });
+            }
+
+            function refreshScan() {
+            const status = document.getElementById('status');
+            const select = document.getElementById('productSelect');
+            const list = document.getElementById('ipList');
+
+            status.textContent = "Scanning Alpha Lab devices - Wait around 20 seconds...";
+
+            select.style.display = "none";
+            select.innerHTML = "";
+            list.innerHTML = "";
+
+            fetch('/api/products-lab/scan?force=1')
+                .then(r => r.json())
+                .then(obj => {
+                setMeta(obj.scanned_at, obj.error);
+
+                if (obj.error) {
+                    status.textContent = "Scan failed. Showing last available cache (if exists).";
+                }
+
+                populateProducts(obj.data || {});
+                })
+                .catch(() => {
+                status.textContent = "Scan failed.";
+                });
+            }
+
+            document.getElementById('refreshBtn').addEventListener('click', refreshScan);
+
+            // On page load
+            loadCached();
+        </script>
+        """
     return page_html("Products - LAB", body)
 
+
 # ----------------------------
-# PRODUCTS - LAB API (SNMP)
+# PRODUCTS - LAB API (Cached)
+# ----------------------------
+@app.get("/api/products-lab/cached")
+def products_lab_cached():
+    scanned_at = PRODUCTS_LAB_CACHE["scanned_at"]
+    return JSONResponse({
+        "data": PRODUCTS_LAB_CACHE["data"] or {},
+        "scanned_at": scanned_at.isoformat(sep=" ", timespec="seconds") if scanned_at else None,
+        "error": PRODUCTS_LAB_CACHE["error"],
+    })
+
+
+# ----------------------------
+# PRODUCTS - LAB API (Scan)
 # ----------------------------
 @app.get("/api/products-lab/scan")
-def products_lab_scan():
-    grouped: Dict[str, List[str]] = defaultdict(list)
+def products_lab_scan(force: int = 0):
+    if not force:
+        scanned_at = PRODUCTS_LAB_CACHE["scanned_at"]
+        return JSONResponse({
+            "data": PRODUCTS_LAB_CACHE["data"] or {},
+            "scanned_at": scanned_at.isoformat(sep=" ", timespec="seconds") if scanned_at else None,
+            "error": PRODUCTS_LAB_CACHE["error"],
+        })
 
-    for net in LAB_NETWORKS:
-        for ip, product in run_snmp_scan(net):
-            grouped[product].append(ip)
+    try:
+        data = perform_products_lab_scan()
+        PRODUCTS_LAB_CACHE["data"] = data
+        PRODUCTS_LAB_CACHE["scanned_at"] = datetime.datetime.now()
+        PRODUCTS_LAB_CACHE["error"] = None
+    except Exception as e:
+        PRODUCTS_LAB_CACHE["error"] = str(e)
 
-    for product in grouped:
-        grouped[product].sort(key=lambda x: tuple(map(int, x.split("."))))
+    scanned_at = PRODUCTS_LAB_CACHE["scanned_at"]
+    return JSONResponse({
+        "data": PRODUCTS_LAB_CACHE["data"] or {},
+        "scanned_at": scanned_at.isoformat(sep=" ", timespec="seconds") if scanned_at else None,
+        "error": PRODUCTS_LAB_CACHE["error"],
+    })
 
-    return JSONResponse(grouped)
 
 # ----------------------------
 # HW TOOLS
