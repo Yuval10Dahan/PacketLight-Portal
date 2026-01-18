@@ -5,8 +5,15 @@ from pathlib import Path
 import datetime
 import subprocess
 import sys
+import shutil
+import tempfile
 from collections import defaultdict
 from typing import Dict, List, Tuple, Any
+from typing import Union
+from typing import Optional
+
+
+
 
 app = fastapi_app = FastAPI(title="PacketLight Company Portal")
 
@@ -23,9 +30,11 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # ----------------------------
 BASE_DIR = Path(__file__).resolve().parent
 DOWNLOADS_DIR = BASE_DIR / "downloads"
+REQUIREMENTS_DIR = BASE_DIR / "requirements_documents"
 
-HW_TOOLS_EXE_NAME = "PacketLight_Documentation_Hub.exe"
-HW_TOOLS_EXE_PATH = DOWNLOADS_DIR / HW_TOOLS_EXE_NAME
+
+HW_TOOLS_RELEASE_DIR = Path(r"\\vs1\PacketLight\PacketLight Documentation Hub\GUI\Release")
+HW_TOOLS_RELEASE_ZIP_NAME = "PacketLight_Documentation_Hub_Release.zip"
 PACKETLIGHT_DOCUMENTATION_HUB_CREATOR = "Andrey Litvinenko"
 
 LAB_NETWORKS = [
@@ -38,9 +47,9 @@ LAB_NETWORKS = [
 # Requirements Docs (CONFIG)
 # (THIS WILL NOW BELONG TO /feature-version-tracking)
 # ----------------------------
-REQ_SELECT_VALUE = "__select__"
+FEATURE_VERSION_TRACKING_SELECT_VALUE = "__select__"
 
-REQ_HEADLINES = [
+FEATURE_VERSION_TRACKING_HEADLINES = [
     "Change log",
     "Front Panel View",
     "Interoperability with other devices",
@@ -54,11 +63,11 @@ REQ_HEADLINES = [
     "Future Version",
 ]
 
-REQ_DEVICES = [
+FEATURE_VERSION_TRACKING_DEVICES = [
     "PL-4000T",
 ]
 
-REQ_CONTENT: Dict[str, Dict[str, str]] = {
+FEATURE_VERSION_TRACKING_CONTENT: Dict[str, Dict[str, str]] = {
     "PL-4000T": {
         "Change log": """
             <div class="muted">
@@ -94,14 +103,62 @@ REQ_CONTENT: Dict[str, Dict[str, str]] = {
 # Feature - Version Tracking (CONFIG)
 # (THIS WILL NOW BELONG TO /requirements-docs)
 # ----------------------------
-FEATURE_SELECT_VALUE = "__select__"
+REQ_SELECT_VALUE = "__select__"
 
-FEATURE_TRACKING_DEVICES = [
+REQ_DEVICES = [
+    "PL-1000D",
+    "PL-1000G IL",
+    "PL-1000GR",
     "PL-1000IL",
+    "PL-1000R",
+    "PL-1000TN",
+    "PL-2000FC",
+    "PL-2000M",
+    "PL-2000T",
+    "PL-4000G",
+    "PL-4000M",
+    "PL-4000T",
+    "PL-8000G",
+    "PL-8000M",
+    "PL-8000T",
 ]
 
-FEATURE_TRACKING_DOC_URLS: Dict[str, str] = {
-    "PL-1000IL": "https://example.com/replace-me/pl-1000il-feature-version-tracking.docx",
+
+# REQ_URLS: Dict[str, Union[str, Path]] = {
+#     "PL-1000D": r"Z:\System\PL-1000D\PL-1000D Requirements -Part I 23 Nov 2025",
+#     "PL-1000G IL": r"Z:\System\PL-1000G\PL1000G IL with OLP System Requirements 1.2 12 Dec 2023",
+#     "PL-1000GR": r"Z:\System\PL-1000GR\PL1000GR requirements 08.08.2024",
+#     "PL-1000IL": r"Z:\System\PL-1000IL\PL-1000IL Requirements 10 Feb 15",
+#     "PL-1000R": r"Z:\System\PL-1000R\PL1000R requirements 19.04.2020",
+#     "PL-1000TN": r"Z:\System\PL-1000TN\PL-1000TN HL System Design-2",
+#     "PL-2000FC": r"Z:\System\PL-2000FC\PL-2000FC System Requirements  - 7.12.25",
+#     "PL-2000M": r"Z:\System\PL-2000M\PL2000M System Requirements - 13 Jul 2017",
+#     "PL-2000T": r"Z:\System\PL-2000T\PL-2000T GEN2 Uplink System Requirements 1.4 15 May 2022",
+#     "PL-4000G": r"Z:\System\PL-4000G\PL-4000G System Requirements - 27 July 2022",
+#     "PL-4000M": r"Z:\System\PL-4000M\PL-4000M System Requirements Part I Rev 1.12 06 Jul 2023",
+#     "PL-4000T": r"Z:\System\PL-4000T\PL-4000T System Requirements Part II 1.6 9 Aug 2024",
+#     "PL-8000G": r"Z:\System\PL-8000G\PL-8000G System Requirements - 24 Dec 2024",
+#     "PL-8000M": r"Z:\System\PL-8000M\PL-8000M System Requirements Rev 1.6 06 Mar 2025",
+#     "PL-8000T": r"Z:\System\PL-8000T\PL-8000T System Requirements Rev 2.5 - 30 Nov 2025",
+#     # "PL-8000T": REQUIREMENTS_DIR / "PL-8000T" / "PL-8000T System Requirements Rev 2.5 - 30 Nov 2025.docx",
+# }
+
+REQ_URLS: Dict[str, Union[str, Path]] = {
+    "PL-1000D":  r"\\vs1\PacketLight\System\PL-1000D",
+    "PL-1000G IL": r"\\vs1\PacketLight\System\PL-1000G",
+    "PL-1000GR": r"\\vs1\PacketLight\System\PL-1000GR",
+    "PL-1000IL": r"\\vs1\PacketLight\System\PL-1000IL",
+    "PL-1000R":  r"\\vs1\PacketLight\System\PL-1000R",
+    "PL-1000TN": r"\\vs1\PacketLight\System\PL-1000TN",
+    "PL-2000FC": r"\\vs1\PacketLight\System\PL-2000FC",
+    "PL-2000M":  r"\\vs1\PacketLight\System\PL-2000M",
+    "PL-2000T":  r"\\vs1\PacketLight\System\PL-2000T",
+    "PL-4000G":  r"\\vs1\PacketLight\System\PL-4000G",
+    "PL-4000M":  r"\\vs1\PacketLight\System\PL-4000M",
+    "PL-4000T":  r"\\vs1\PacketLight\System\PL-4000T",
+    "PL-8000G":  r"\\vs1\PacketLight\System\PL-8000G",
+    "PL-8000M":  r"\\vs1\PacketLight\System\PL-8000M",
+    "PL-8000T":  r"\\vs1\PacketLight\System\PL-8000T",
 }
 
 # ----------------------------
@@ -152,6 +209,78 @@ def page_html(title: str, body_html: str) -> HTMLResponse:
       </body>
     </html>
     """)
+
+
+# ----------------------------
+# Requirements doc picker
+# ----------------------------
+REQ_KEYWORDS = ("system requirements", "requirements", "system")   # case-insensitive
+DOC_EXTS = (".doc", ".docx", ".docm", ".ppt", ".pptx", ".pptm")
+
+def device_name_variants(device: str) -> List[str]:
+    """
+    Build possible name variants for matching file names:
+    - "PL-1000GR" -> ["pl-1000gr", "pl1000gr"]
+    - "PL-1000G IL" -> ["pl-1000g il", "pl1000gil", "pl-1000gil", "pl1000g il"] (covers common styles)
+    """
+    d = device.strip().lower()
+
+    # common variants
+    no_dash = d.replace("-", "")
+    no_space = d.replace(" ", "")
+    no_dash_no_space = no_dash.replace(" ", "")
+
+    # also support removing spaces but keeping dash, etc.
+    dash_no_space = d.replace(" ", "")
+
+    # keep only unique, non-empty
+    variants = [d, no_dash, no_space, no_dash_no_space, dash_no_space]
+    out = []
+    for v in variants:
+        if v and v not in out:
+            out.append(v)
+    return out
+
+def pick_newest_requirements_doc(folder: Path, device: str) -> Optional[Path]:
+    if not folder.exists() or not folder.is_dir():
+        return None
+
+    keywords = [k.lower() for k in REQ_KEYWORDS]
+    exts = {e.lower() for e in DOC_EXTS}
+    variants = device_name_variants(device)
+
+    candidates: List[Path] = []
+
+    for p in folder.iterdir():   # only under PL-xxxx (no subfolders)
+        if not p.is_file():
+            continue
+
+        # ❌ skip Office temp / lock files
+        if p.name.startswith("~$"):
+            continue
+
+        if p.suffix.lower() not in exts:
+            continue
+
+        name = p.name.lower()
+
+        # ✅ must contain product name (supports PL-XXXX / PLXXXX / spacing variants)
+        if not any(v in name for v in variants):
+            continue
+
+        # ✅ must contain requirements keyword
+        if not any(k in name for k in keywords):
+            continue
+
+        candidates.append(p)
+
+    if not candidates:
+        return None
+
+    # ✅ newest by filesystem "Date modified"
+    return max(candidates, key=lambda x: x.stat().st_mtime)
+
+
 
 # ----------------------------
 # SNMP subprocess runner
@@ -247,7 +376,7 @@ def requirements_docs_page():
       <p class="muted" id="reqDlStatus" style="margin-top:12px;"></p>
 
       <script>
-        const SELECT_VALUE = "{FEATURE_SELECT_VALUE}";
+        const SELECT_VALUE = "{REQ_SELECT_VALUE}";
         const deviceSel = document.getElementById("reqDlDevice");
         const dlBtn = document.getElementById("reqDlBtn");
         const status = document.getElementById("reqDlStatus");
@@ -314,19 +443,39 @@ def requirements_docs_page():
 # ----------------------------
 @app.get("/api/requirements-docs/devices")
 def req_docs_devices():
-    return JSONResponse(sorted(FEATURE_TRACKING_DEVICES))
+    return JSONResponse(sorted(REQ_DEVICES))
 
 
 @app.get("/api/requirements-docs/download")
 def req_docs_download(device: str):
-    if not device or device == FEATURE_SELECT_VALUE:
+    if not device or device == REQ_SELECT_VALUE:
         raise HTTPException(400, "Missing device")
 
-    url = FEATURE_TRACKING_DOC_URLS.get(device)
-    if not url:
-        raise HTTPException(404, f"No document URL configured for device: {device}")
+    raw: Union[str, Path, None] = REQ_URLS.get(device)
+    if not raw:
+        raise HTTPException(404, f"No document configured for device: {device}")
 
-    return RedirectResponse(url)
+    p = Path(raw)
+
+    # ✅ If REQ_URLS points to a folder -> pick newest matching doc/docx in that folder
+    if p.exists() and p.is_dir():
+        chosen = pick_newest_requirements_doc(p, device)
+        if not chosen:
+            raise HTTPException(
+                404,
+                f"No matching {DOC_EXTS} found containing {REQ_KEYWORDS} in: {p}"
+            )
+        p = chosen
+
+    # ✅ If REQ_URLS points to a file (doc/docx) -> just use it
+    if not p.exists() or not p.is_file():
+        raise HTTPException(404, f"File not found: {p}")
+
+    return FileResponse(
+        p,
+        filename=p.name,
+        media_type="application/octet-stream",
+    )
 
 
 @app.get("/ga-versions")
@@ -367,7 +516,7 @@ def feature_version_tracking_page():
     </div>
 
     <script>
-      const SELECT_VALUE = "{REQ_SELECT_VALUE}";
+      const SELECT_VALUE = "{FEATURE_VERSION_TRACKING_SELECT_VALUE}";
 
       const deviceSel = document.getElementById("reqDevice");
       const headSel   = document.getElementById("reqHeadline");
@@ -488,24 +637,24 @@ def feature_version_tracking_page():
 # ----------------------------
 @app.get("/api/feature-version-tracking/devices")
 def fvt_devices():
-    return JSONResponse(sorted(REQ_DEVICES))
+    return JSONResponse(sorted(FEATURE_VERSION_TRACKING_DEVICES))
 
 
 @app.get("/api/feature-version-tracking/headlines")
 def fvt_headlines(device: str):
-    if not device or device == REQ_SELECT_VALUE:
+    if not device or device == FEATURE_VERSION_TRACKING_SELECT_VALUE:
         return JSONResponse([])
-    return JSONResponse(REQ_HEADLINES)
+    return JSONResponse(FEATURE_VERSION_TRACKING_HEADLINES)
 
 
 @app.get("/api/feature-version-tracking/content")
 def fvt_content(device: str, headline: str):
-    if not device or device == REQ_SELECT_VALUE:
+    if not device or device == FEATURE_VERSION_TRACKING_SELECT_VALUE:
         return JSONResponse({"html": ""})
-    if not headline or headline == REQ_SELECT_VALUE:
+    if not headline or headline == FEATURE_VERSION_TRACKING_SELECT_VALUE:
         return JSONResponse({"html": ""})
 
-    html = REQ_CONTENT.get(device, {}).get(headline, "")
+    html = FEATURE_VERSION_TRACKING_CONTENT.get(device, {}).get(headline, "")
     return JSONResponse({"html": html})
 
 
@@ -705,25 +854,39 @@ def products_lab_scan(force: int = 0):
 # ----------------------------
 @app.get("/download/hw-tools")
 def download_hw_tools():
-    if not HW_TOOLS_EXE_PATH.exists():
-        raise HTTPException(404, "HW Tools installer not found")
-    return FileResponse(HW_TOOLS_EXE_PATH, filename=HW_TOOLS_EXE_NAME)
+    if not HW_TOOLS_RELEASE_DIR.exists() or not HW_TOOLS_RELEASE_DIR.is_dir():
+        raise HTTPException(404, "HW Tools Release folder not found")
+
+    # create temp zip
+    tmp_dir = Path(tempfile.mkdtemp())
+    zip_path = tmp_dir / HW_TOOLS_RELEASE_ZIP_NAME
+
+    shutil.make_archive(
+        base_name=str(zip_path.with_suffix("")),
+        format="zip",
+        root_dir=HW_TOOLS_RELEASE_DIR,
+    )
+
+    return FileResponse(
+        zip_path,
+        filename=HW_TOOLS_RELEASE_ZIP_NAME,
+        media_type="application/zip",
+    )
 
 
 @app.get("/hw-tools")
 def hw_tools_page():
-    if not HW_TOOLS_EXE_PATH.exists():
-        return page_html("HW Tools", "<p class='muted'>Installer not found.</p>")
+    if not HW_TOOLS_RELEASE_DIR.exists():
+        return page_html("HW Tools", "<p class='muted'>Release folder not found.</p>")
 
-    st = HW_TOOLS_EXE_PATH.stat()
     return page_html("HW Tools", f"""
       <div class="muted">
-        <div><b>File:</b> {HW_TOOLS_EXE_NAME}</div>
-        <div><b>Size:</b> {human_size(st.st_size)}</div>
-        <div><b>Updated:</b> {datetime.datetime.fromtimestamp(st.st_mtime)}</div>
+        <div><b>Package:</b> PacketLight Documentation Hub Release</div>
+        <div><b>Source:</b> \\\\vs1\PacketLight\PacketLight Documentation Hub\GUI\Release</div>
         <div><b>Creator:</b> {PACKETLIGHT_DOCUMENTATION_HUB_CREATOR}</div>
       </div>
       <div class="actions" style="margin-top:14px">
-        <a class="btn" href="/download/hw-tools">⬇ Download</a>
+        <a class="btn" href="/download/hw-tools">⬇ Download Release (ZIP)</a>
       </div>
     """)
+
