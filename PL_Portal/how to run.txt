@@ -1,3 +1,6 @@
 python -m uvicorn main:app --reload  (own pc)
 
 python -m uvicorn main:app --reload --host 0.0.0.0 (users can get in via 192.168.1.57:8000)
+
+py -3.8 -m uvicorn main:app --reload --host 0.0.0.0 (users can get in via 192.168.1.57:8000)
+
