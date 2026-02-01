@@ -1,0 +1,240 @@
+{
+  "Fields": [
+    {
+      "Name": "test-id",
+      "values": [
+        {
+          "value": "38387"
+        }
+      ]
+    },
+    {
+      "Name": "os-config",
+      "values": [
+        {}
+      ]
+    },
+    {
+      "Name": "data-obj",
+      "values": [
+        {}
+      ]
+    },
+    {
+      "Name": "is-dynamic",
+      "values": [
+        {
+          "value": "N"
+        }
+      ]
+    },
+    {
+      "Name": "exec-time",
+      "values": [
+        {
+          "value": "10:10:02"
+        }
+      ]
+    },
+    {
+      "Name": "cycle",
+      "values": [
+        {}
+      ]
+    },
+    {
+      "Name": "has-linkage",
+      "values": [
+        {
+          "value": "N"
+        }
+      ]
+    },
+    {
+      "Name": "exec-event-handle",
+      "values": [
+        {}
+      ]
+    },
+    {
+      "Name": "exec-date",
+      "values": [
+        {
+          "value": "2025-12-30"
+        }
+      ]
+    },
+    {
+      "Name": "last-modified",
+      "values": [
+        {
+          "value": "2025-12-30 10:10:03"
+        }
+      ]
+    },
+    {
+      "Name": "subtype-id",
+      "values": [
+        {
+          "value": "hp.qc.test-instance.MANUAL"
+        }
+      ]
+    },
+    {
+      "Name": "cycle-id",
+      "values": [
+        {
+          "value": "10362"
+        }
+      ]
+    },
+    {
+      "Name": "attachment",
+      "values": [
+        {}
+      ]
+    },
+    {
+      "Name": "id",
+      "values": [
+        {
+          "value": "63301"
+        }
+      ]
+    },
+    {
+      "Name": "plan-scheduling-date",
+      "values": []
+    },
+    {
+      "Name": "assign-rcyc",
+      "values": [
+        {}
+      ]
+    },
+    {
+      "Name": "test-config-id",
+      "values": [
+        {
+          "value": "39398"
+        }
+      ]
+    },
+    {
+      "Name": "owner",
+      "values": [
+        {
+          "value": "dimag"
+        }
+      ]
+    },
+    {
+      "Name": "pinned-baseline",
+      "values": [
+        {}
+      ]
+    },
+    {
+      "Name": "ver-stamp",
+      "values": [
+        {
+          "value": "4"
+        }
+      ]
+    },
+    {
+      "Name": "test-instance",
+      "values": [
+        {
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "Name": "host-name",
+      "values": [
+        {}
+      ]
+    },
+    {
+      "Name": "order-id",
+      "values": [
+        {
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "Name": "eparams",
+      "values": [
+        {}
+      ]
+    },
+    {
+      "Name": "iterations",
+      "values": [
+        {}
+      ]
+    },
+    {
+      "Name": "environment",
+      "values": [
+        {}
+      ]
+    },
+    {
+      "Name": "actual-tester",
+      "values": [
+        {
+          "value": "hanan"
+        }
+      ]
+    },
+    {
+      "Name": "name",
+      "values": [
+        {
+          "value": "100GbE-LAN_Recovery test [1]"
+        }
+      ]
+    },
+    {
+      "Name": "user-01",
+      "values": []
+    },
+    {
+      "Name": "bpta-change-awareness",
+      "values": [
+        {}
+      ]
+    },
+    {
+      "Name": "plan-scheduling-time",
+      "values": [
+        {}
+      ]
+    },
+    {
+      "Name": "user-02",
+      "values": [
+        {}
+      ]
+    },
+    {
+      "Name": "status",
+      "values": [
+        {
+          "value": "Passed"
+        }
+      ]
+    },
+    {
+      "Name": "user-03",
+      "values": [
+        {}
+      ]
+    }
+  ],
+  "Type": "test-instance",
+  "children-count": 0
+}

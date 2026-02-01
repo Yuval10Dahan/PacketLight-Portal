@@ -8,14 +8,14 @@ import sys
 import shutil
 import tempfile
 from collections import defaultdict
-from typing import Dict, List, Tuple, Any
-from typing import Union
-from typing import Optional
+from typing import Dict, List, Tuple, Any, Union, Optional
+import os
+import importlib.util
 
 
+app = FastAPI(title="PacketLight Company Portal")
 
 
-app = fastapi_app = FastAPI(title="PacketLight Company Portal")
 
 # ----------------------------
 # URLs
@@ -23,15 +23,12 @@ app = fastapi_app = FastAPI(title="PacketLight Company Portal")
 LATENCY_URL = "https://latency-dashboard-file.streamlit.app/"
 APS_URL = "https://aps-dashboard-file.streamlit.app/"
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
 # ----------------------------
 # Paths
 # ----------------------------
 BASE_DIR = Path(__file__).resolve().parent
 DOWNLOADS_DIR = BASE_DIR / "downloads"
 REQUIREMENTS_DIR = BASE_DIR / "requirements_documents"
-
 
 HW_TOOLS_RELEASE_DIR = Path(r"\\vs1\PacketLight\PacketLight Documentation Hub\GUI\Release")
 HW_TOOLS_RELEASE_ZIP_NAME = "PacketLight_Documentation_Hub_Release.zip"
@@ -44,8 +41,100 @@ LAB_NETWORKS = [
 ]
 
 # ----------------------------
+# Mount static (portal)
+# ----------------------------
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# ----------------------------
+# Mount GUIQC frontend build (served by portal)
+# You must copy GUIQC frontend build output into: static/guiqc/
+# ----------------------------
+app.mount(
+    "/sw-test-progress/guiqc",
+    StaticFiles(directory="static/guiqc", html=True),
+    name="guiqc",
+)
+
+
+
+def _try_merge_guiqc_backend() -> None:
+    """
+    Merge GUIQC backend into Portal process safely (no 'main' name collisions).
+
+    It loads GUIQC/backend/main.py by absolute path and then:
+      - if it exposes `router` -> include_router(router)
+      - elif it exposes `app`   -> copy its routes into portal
+    """
+    guiqc_backend_dir = BASE_DIR / "GUIQC" / "backend"
+    backend_file = guiqc_backend_dir / "main.py"
+
+    print(f"[GUIQC] backend dir = {guiqc_backend_dir}")
+
+    if not backend_file.exists():
+        print(f"[GUIQC] backend main.py not found: {backend_file}")
+        return
+
+    print("[GUIQC] importing GUIQC backend main.py ...")
+
+    try:
+        spec = importlib.util.spec_from_file_location("guiqc_backend_main", str(backend_file))
+        if spec is None or spec.loader is None:
+            print("[GUIQC] failed to create import spec")
+            return
+
+        guiqc_backend_main = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(guiqc_backend_main)
+
+        print("[GUIQC] import done ✅")
+    except Exception as e:
+        print(f"[GUIQC] failed to import GUIQC backend: {e}")
+        return
+
+    # Case 1: router exists
+    router = getattr(guiqc_backend_main, "router", None)
+    if router is not None:
+        try:
+            app.include_router(router)
+            print("[GUIQC] backend merged via router ✅")
+            return
+        except Exception as e:
+            print(f"[GUIQC] include_router failed: {e}")
+
+    # Case 2: FastAPI app exists
+    sub_app = getattr(guiqc_backend_main, "app", None)
+    if sub_app is not None and hasattr(sub_app, "router"):
+        try:
+            for r in sub_app.router.routes:
+                app.router.routes.append(r)
+            print("[GUIQC] backend merged by copying routes ✅")
+            return
+        except Exception as e:
+            print(f"[GUIQC] failed to copy backend routes: {e}")
+
+    print("[GUIQC] backend merge failed (no router/app detected) ❌")
+
+
+
+# Merge GUIQC backend routes into portal (non-blocking startup)
+try:
+    _try_merge_guiqc_backend()
+except Exception as e:
+    print(f"[GUIQC] merge failed: {e}")
+
+# ============================================================
+# IMPORTANT DESIGN DECISION:
+# GUIQC expects its backend at /api/...
+# Your portal also had /api/... endpoints.
+#
+# To avoid collisions:
+#   - GUIQC keeps /api/...
+#   - Portal APIs move to /portal-api/...
+# ============================================================
+PORTAL_API_PREFIX = "/portal-api"
+
+
+# ----------------------------
 # Requirements Docs (CONFIG)
-# (THIS WILL NOW BELONG TO /feature-version-tracking)
 # ----------------------------
 FEATURE_VERSION_TRACKING_SELECT_VALUE = "__select__"
 
@@ -99,10 +188,6 @@ FEATURE_VERSION_TRACKING_CONTENT: Dict[str, Dict[str, str]] = {
     }
 }
 
-# ----------------------------
-# Feature - Version Tracking (CONFIG)
-# (THIS WILL NOW BELONG TO /requirements-docs)
-# ----------------------------
 REQ_SELECT_VALUE = "__select__"
 
 REQ_DEVICES = [
@@ -122,26 +207,6 @@ REQ_DEVICES = [
     "PL-8000M",
     "PL-8000T",
 ]
-
-
-# REQ_URLS: Dict[str, Union[str, Path]] = {
-#     "PL-1000D": r"Z:\System\PL-1000D\PL-1000D Requirements -Part I 23 Nov 2025",
-#     "PL-1000G IL": r"Z:\System\PL-1000G\PL1000G IL with OLP System Requirements 1.2 12 Dec 2023",
-#     "PL-1000GR": r"Z:\System\PL-1000GR\PL1000GR requirements 08.08.2024",
-#     "PL-1000IL": r"Z:\System\PL-1000IL\PL-1000IL Requirements 10 Feb 15",
-#     "PL-1000R": r"Z:\System\PL-1000R\PL1000R requirements 19.04.2020",
-#     "PL-1000TN": r"Z:\System\PL-1000TN\PL-1000TN HL System Design-2",
-#     "PL-2000FC": r"Z:\System\PL-2000FC\PL-2000FC System Requirements  - 7.12.25",
-#     "PL-2000M": r"Z:\System\PL-2000M\PL2000M System Requirements - 13 Jul 2017",
-#     "PL-2000T": r"Z:\System\PL-2000T\PL-2000T GEN2 Uplink System Requirements 1.4 15 May 2022",
-#     "PL-4000G": r"Z:\System\PL-4000G\PL-4000G System Requirements - 27 July 2022",
-#     "PL-4000M": r"Z:\System\PL-4000M\PL-4000M System Requirements Part I Rev 1.12 06 Jul 2023",
-#     "PL-4000T": r"Z:\System\PL-4000T\PL-4000T System Requirements Part II 1.6 9 Aug 2024",
-#     "PL-8000G": r"Z:\System\PL-8000G\PL-8000G System Requirements - 24 Dec 2024",
-#     "PL-8000M": r"Z:\System\PL-8000M\PL-8000M System Requirements Rev 1.6 06 Mar 2025",
-#     "PL-8000T": r"Z:\System\PL-8000T\PL-8000T System Requirements Rev 2.5 - 30 Nov 2025",
-#     # "PL-8000T": REQUIREMENTS_DIR / "PL-8000T" / "PL-8000T System Requirements Rev 2.5 - 30 Nov 2025.docx",
-# }
 
 REQ_URLS: Dict[str, Union[str, Path]] = {
     "PL-1000D":  r"\\vs1\PacketLight\System\PL-1000D",
@@ -173,16 +238,6 @@ PRODUCTS_LAB_CACHE: Dict[str, Any] = {
 # ----------------------------
 # Helpers
 # ----------------------------
-def human_size(num_bytes: int) -> str:
-    units = ["B", "KB", "MB", "GB", "TB"]
-    size = float(num_bytes)
-    for u in units:
-        if size < 1024 or u == units[-1]:
-            return f"{int(size)} {u}" if u == "B" else f"{size:.2f} {u}"
-        size /= 1024.0
-    return f"{num_bytes} B"
-
-
 def page_html(title: str, body_html: str) -> HTMLResponse:
     return HTMLResponse(f"""
     <!DOCTYPE html>
@@ -195,7 +250,7 @@ def page_html(title: str, body_html: str) -> HTMLResponse:
       </head>
       <body>
         <div class="wrap">
-          <header class="top">
+          <header class="top portal-header">
             <a class="brand" href="/">PacketLight Portal</a>
           </header>
           <main class="card">
@@ -218,22 +273,11 @@ REQ_KEYWORDS = ("system requirements", "requirements", "system")   # case-insens
 DOC_EXTS = (".doc", ".docx", ".docm", ".ppt", ".pptx", ".pptm")
 
 def device_name_variants(device: str) -> List[str]:
-    """
-    Build possible name variants for matching file names:
-    - "PL-1000GR" -> ["pl-1000gr", "pl1000gr"]
-    - "PL-1000G IL" -> ["pl-1000g il", "pl1000gil", "pl-1000gil", "pl1000g il"] (covers common styles)
-    """
     d = device.strip().lower()
-
-    # common variants
     no_dash = d.replace("-", "")
     no_space = d.replace(" ", "")
     no_dash_no_space = no_dash.replace(" ", "")
-
-    # also support removing spaces but keeping dash, etc.
     dash_no_space = d.replace(" ", "")
-
-    # keep only unique, non-empty
     variants = [d, no_dash, no_space, no_dash_no_space, dash_no_space]
     out = []
     for v in variants:
@@ -250,36 +294,25 @@ def pick_newest_requirements_doc(folder: Path, device: str) -> Optional[Path]:
     variants = device_name_variants(device)
 
     candidates: List[Path] = []
-
-    for p in folder.iterdir():   # only under PL-xxxx (no subfolders)
+    for p in folder.iterdir():
         if not p.is_file():
             continue
-
-        # ❌ skip Office temp / lock files
         if p.name.startswith("~$"):
             continue
-
         if p.suffix.lower() not in exts:
             continue
 
         name = p.name.lower()
-
-        # ✅ must contain product name (supports PL-XXXX / PLXXXX / spacing variants)
         if not any(v in name for v in variants):
             continue
-
-        # ✅ must contain requirements keyword
         if not any(k in name for k in keywords):
             continue
-
         candidates.append(p)
 
     if not candidates:
         return None
 
-    # ✅ newest by filesystem "Date modified"
     return max(candidates, key=lambda x: x.stat().st_mtime)
-
 
 
 # ----------------------------
@@ -313,9 +346,6 @@ def run_snmp_scan(network: str) -> List[Tuple[str, str]]:
         rows.append((parts[0], " ".join(parts[1:])))
     return rows
 
-# ----------------------------
-# Products-LAB scanning logic
-# ----------------------------
 def perform_products_lab_scan() -> Dict[str, List[str]]:
     grouped: Dict[str, List[str]] = defaultdict(list)
 
@@ -327,6 +357,15 @@ def perform_products_lab_scan() -> Dict[str, List[str]]:
         grouped[product].sort(key=lambda x: tuple(map(int, x.split("."))))
 
     return dict(grouped)
+
+
+# ============================================================
+# GUIQC BACKEND MERGE (Solution 1)
+# - We import GUIQC backend module and "attach" its routes into this app.
+# - After this, GUIQC /api/... endpoints are handled by the portal process.
+# ============================================================
+
+
 
 # ----------------------------
 # ROUTES
@@ -351,10 +390,35 @@ def assembly_page():
     return page_html("Assembly", "<p class='muted'>Placeholder page.</p>")
 
 
+@app.get("/ga-versions")
+def ga_versions_page():
+    return page_html("GA Versions", "<p class='muted'>Placeholder page.</p>")
+
+
+@app.get("/sw-test-progress")
+def sw_test_progress_page():
+    # Production path (served by portal)
+    body = """
+    <div class="swtp-page">
+      <div class="card swtp-wide" style="height:90vh; overflow:hidden; padding:0;">
+        <iframe
+          src="/sw-test-progress/guiqc/"
+          style="width:100%; height:100%; border:0; display:block;"
+          loading="lazy"
+        ></iframe>
+      </div>
+    </div>
+    """
+    return page_html("SW Test Progress", body)
+
+
 # ============================================================
-# SWAP #1:
-# /requirements-docs  -> NOW shows "download doc" UI (old FVT)
+# PORTAL APIs (moved to /portal-api to avoid collision with GUIQC /api)
 # ============================================================
+
+# ----------------------------
+# Requirements Docs (UI)
+# ----------------------------
 @app.get("/requirements-docs")
 def requirements_docs_page():
     body = f"""
@@ -405,7 +469,7 @@ def requirements_docs_page():
           setStatus("Select a device.");
         }}
 
-        fetch("/api/requirements-docs/devices")
+        fetch("{PORTAL_API_PREFIX}/requirements-docs/devices")
           .then(r => r.json())
           .then(devices => {{
             populateDevices(devices);
@@ -430,23 +494,19 @@ def requirements_docs_page():
           if (!dev || dev === SELECT_VALUE) return;
 
           setStatus("Starting download for: " + dev);
-          window.location.href = "/api/requirements-docs/download?device=" + encodeURIComponent(dev);
+          window.location.href = "{PORTAL_API_PREFIX}/requirements-docs/download?device=" + encodeURIComponent(dev);
         }});
       </script>
     """
     return page_html("Requirements", body)
 
 
-# ----------------------------
-# SWAP #1 API:
-# /api/requirements-docs/*  -> was FVT api
-# ----------------------------
-@app.get("/api/requirements-docs/devices")
+@app.get(f"{PORTAL_API_PREFIX}/requirements-docs/devices")
 def req_docs_devices():
     return JSONResponse(sorted(REQ_DEVICES))
 
 
-@app.get("/api/requirements-docs/download")
+@app.get(f"{PORTAL_API_PREFIX}/requirements-docs/download")
 def req_docs_download(device: str):
     if not device or device == REQ_SELECT_VALUE:
         raise HTTPException(400, "Missing device")
@@ -457,7 +517,6 @@ def req_docs_download(device: str):
 
     p = Path(raw)
 
-    # ✅ If REQ_URLS points to a folder -> pick newest matching doc/docx in that folder
     if p.exists() and p.is_dir():
         chosen = pick_newest_requirements_doc(p, device)
         if not chosen:
@@ -467,7 +526,6 @@ def req_docs_download(device: str):
             )
         p = chosen
 
-    # ✅ If REQ_URLS points to a file (doc/docx) -> just use it
     if not p.exists() or not p.is_file():
         raise HTTPException(404, f"File not found: {p}")
 
@@ -478,20 +536,9 @@ def req_docs_download(device: str):
     )
 
 
-@app.get("/ga-versions")
-def ga_versions_page():
-    return page_html("GA Versions", "<p class='muted'>Placeholder page.</p>")
-
-
-@app.get("/sw-test-progress")
-def sw_test_progress_page():
-    return page_html("SW Test Progress", "<p class='muted'>Placeholder page.</p>")
-
-
-# ============================================================
-# SWAP #2:
-# /feature-version-tracking -> NOW shows old Requirements UI
-# ============================================================
+# ----------------------------
+# Feature - Version Tracking (UI)
+# ----------------------------
 @app.get("/feature-version-tracking")
 def feature_version_tracking_page():
     body = f"""
@@ -576,7 +623,7 @@ def feature_version_tracking_page():
         headSel.disabled = false;
       }}
 
-      fetch("/api/feature-version-tracking/devices")
+      fetch("{PORTAL_API_PREFIX}/feature-version-tracking/devices")
         .then(r => r.json())
         .then(devices => {{
           populateDevices(devices);
@@ -595,7 +642,7 @@ def feature_version_tracking_page():
         }}
 
         setContent("<div class='muted'>Select a headline.</div>");
-        fetch("/api/feature-version-tracking/headlines?device=" + encodeURIComponent(dev))
+        fetch("{PORTAL_API_PREFIX}/feature-version-tracking/headlines?device=" + encodeURIComponent(dev))
           .then(r => r.json())
           .then(headlines => {{
             populateHeadlines(headlines);
@@ -617,7 +664,7 @@ def feature_version_tracking_page():
         }}
 
         setContent("<div class='muted'>Loading...</div>");
-        fetch("/api/feature-version-tracking/content?device=" + encodeURIComponent(dev) + "&headline=" + encodeURIComponent(h))
+        fetch("{PORTAL_API_PREFIX}/feature-version-tracking/content?device=" + encodeURIComponent(dev) + "&headline=" + encodeURIComponent(h))
           .then(r => r.json())
           .then(obj => {{
             setContent(obj.html || "<div class='muted'>No content.</div>");
@@ -631,23 +678,19 @@ def feature_version_tracking_page():
     return page_html("Feature - Version Tracking", body)
 
 
-# ----------------------------
-# SWAP #2 API:
-# /api/feature-version-tracking/* -> was Requirements api
-# ----------------------------
-@app.get("/api/feature-version-tracking/devices")
+@app.get(f"{PORTAL_API_PREFIX}/feature-version-tracking/devices")
 def fvt_devices():
     return JSONResponse(sorted(FEATURE_VERSION_TRACKING_DEVICES))
 
 
-@app.get("/api/feature-version-tracking/headlines")
+@app.get(f"{PORTAL_API_PREFIX}/feature-version-tracking/headlines")
 def fvt_headlines(device: str):
     if not device or device == FEATURE_VERSION_TRACKING_SELECT_VALUE:
         return JSONResponse([])
     return JSONResponse(FEATURE_VERSION_TRACKING_HEADLINES)
 
 
-@app.get("/api/feature-version-tracking/content")
+@app.get(f"{PORTAL_API_PREFIX}/feature-version-tracking/content")
 def fvt_content(device: str, headline: str):
     if not device or device == FEATURE_VERSION_TRACKING_SELECT_VALUE:
         return JSONResponse({"html": ""})
@@ -663,8 +706,7 @@ def fvt_content(device: str, headline: str):
 # ----------------------------
 @app.get("/products-lab")
 def products_lab_page():
-    body = """
-        <!-- Row 1: Refresh + Last scan (same line) -->
+    body = f"""
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
             <button id="refreshBtn" class="btn" type="button" style="cursor:pointer;">
             📡 Scan Devices
@@ -673,144 +715,137 @@ def products_lab_page():
             <span class="muted" id="meta" style="font-size:12px;"></span>
         </div>
 
-        <!-- Row 2: Status text (Select product / Scanning / Errors) -->
         <p class="muted" id="status" style="margin-top:10px; margin-bottom:8px;">
             Loading last scan...
         </p>
 
-        <!-- Row 3: Dropdown -->
         <select id="productSelect" class="btn" style="display:none; margin-bottom:12px;"></select>
 
-        <!-- Drilldown list -->
         <ul id="ipList" style="margin-top:10px;"></ul>
 
         <script>
             const SELECT_PLACEHOLDER_VALUE = "__select__";
 
-            function renderIPs(data) {
-            const select = document.getElementById('productSelect');
-            const list = document.getElementById('ipList');
-            const chosen = select.value;
+            function renderIPs(data) {{
+              const select = document.getElementById('productSelect');
+              const list = document.getElementById('ipList');
+              const chosen = select.value;
 
-            list.innerHTML = '';
-            if (chosen === SELECT_PLACEHOLDER_VALUE) return;
+              list.innerHTML = '';
+              if (chosen === SELECT_PLACEHOLDER_VALUE) return;
 
-            (data[chosen] || []).forEach(ip => {
-                const li = document.createElement('li');
-                li.textContent = ip;
-                list.appendChild(li);
-            });
-            }
+              (data[chosen] || []).forEach(ip => {{
+                  const li = document.createElement('li');
+                  li.textContent = ip;
+                  list.appendChild(li);
+              }});
+            }}
 
-            function populateProducts(data) {
-            const status = document.getElementById('status');
-            const select = document.getElementById('productSelect');
+            function populateProducts(data) {{
+              const status = document.getElementById('status');
+              const select = document.getElementById('productSelect');
 
-            select.innerHTML = "";
+              select.innerHTML = "";
 
-            const keys = Object.keys(data || {});
-            if (!keys.length) {
-                select.style.display = "none";
-                document.getElementById('ipList').innerHTML = "";
-                status.textContent = "No cached scans yet.";
-                return;
-            }
+              const keys = Object.keys(data || {{}});
+              if (!keys.length) {{
+                  select.style.display = "none";
+                  document.getElementById('ipList').innerHTML = "";
+                  status.textContent = "No cached scans yet.";
+                  return;
+              }}
 
-            status.textContent = "Select product:";
-            select.style.display = "inline-block";
+              status.textContent = "Select product:";
+              select.style.display = "inline-block";
 
-            const placeholder = document.createElement('option');
-            placeholder.value = SELECT_PLACEHOLDER_VALUE;
-            placeholder.textContent = 'Select';
-            placeholder.selected = true;
-            select.appendChild(placeholder);
+              const placeholder = document.createElement('option');
+              placeholder.value = SELECT_PLACEHOLDER_VALUE;
+              placeholder.textContent = 'Select';
+              placeholder.selected = true;
+              select.appendChild(placeholder);
 
-            keys.sort().forEach(product => {
-                const opt = document.createElement('option');
-                opt.value = product;
-                opt.textContent = product;
-                select.appendChild(opt);
-            });
+              keys.sort().forEach(product => {{
+                  const opt = document.createElement('option');
+                  opt.value = product;
+                  opt.textContent = product;
+                  select.appendChild(opt);
+              }});
 
-            select.onchange = () => renderIPs(data);
-            select.value = SELECT_PLACEHOLDER_VALUE;
-            renderIPs(data);
-            }
+              select.onchange = () => renderIPs(data);
+              select.value = SELECT_PLACEHOLDER_VALUE;
+              renderIPs(data);
+            }}
 
-            function setMeta(scannedAt, err) {
-            const meta = document.getElementById('meta');
-            if (!scannedAt && !err) {
-                meta.textContent = "";
-                return;
-            }
+            function setMeta(scannedAt, err) {{
+              const meta = document.getElementById('meta');
+              if (!scannedAt && !err) {{
+                  meta.textContent = "";
+                  return;
+              }}
 
-            let txt = scannedAt ? ("Last scan: " + scannedAt) : "";
-            if (err) txt += (txt ? " • " : "") + ("Error: " + err);
-            meta.textContent = txt;
-            }
+              let txt = scannedAt ? ("Last scan: " + scannedAt) : "";
+              if (err) txt += (txt ? " • " : "") + ("Error: " + err);
+              meta.textContent = txt;
+            }}
 
-            function loadCached() {
-            const status = document.getElementById('status');
-            status.textContent = "Loading last scan...";
-            setMeta("", "");
+            function loadCached() {{
+              const status = document.getElementById('status');
+              status.textContent = "Loading last scan...";
+              setMeta("", "");
 
-            fetch('/api/products-lab/cached')
-                .then(r => r.json())
-                .then(obj => {
-                setMeta(obj.scanned_at, obj.error);
+              fetch('{PORTAL_API_PREFIX}/products-lab/cached')
+                  .then(r => r.json())
+                  .then(obj => {{
+                    setMeta(obj.scanned_at, obj.error);
 
-                if (obj.error) {
-                    status.textContent = "Last scan had an error. You can Refresh.";
-                }
+                    if (obj.error) {{
+                        status.textContent = "Last scan had an error. You can Refresh.";
+                    }}
 
-                populateProducts(obj.data || {});
-                })
-                .catch(() => {
-                status.textContent = "Failed to load cached scan.";
-                setMeta("", "");
-                });
-            }
+                    populateProducts(obj.data || {{}});
+                  }})
+                  .catch(() => {{
+                    status.textContent = "Failed to load cached scan.";
+                    setMeta("", "");
+                  }});
+            }}
 
-            function refreshScan() {
-            const status = document.getElementById('status');
-            const select = document.getElementById('productSelect');
-            const list = document.getElementById('ipList');
+            function refreshScan() {{
+              const status = document.getElementById('status');
+              const select = document.getElementById('productSelect');
+              const list = document.getElementById('ipList');
 
-            status.textContent = "Scanning Alpha Lab devices - Wait around 20 seconds...";
+              status.textContent = "Scanning Alpha Lab devices - Wait around 20 seconds...";
 
-            select.style.display = "none";
-            select.innerHTML = "";
-            list.innerHTML = "";
+              select.style.display = "none";
+              select.innerHTML = "";
+              list.innerHTML = "";
 
-            fetch('/api/products-lab/scan?force=1')
-                .then(r => r.json())
-                .then(obj => {
-                setMeta(obj.scanned_at, obj.error);
+              fetch('{PORTAL_API_PREFIX}/products-lab/scan?force=1')
+                  .then(r => r.json())
+                  .then(obj => {{
+                    setMeta(obj.scanned_at, obj.error);
 
-                if (obj.error) {
-                    status.textContent = "Scan failed. Showing last available cache (if exists).";
-                }
+                    if (obj.error) {{
+                        status.textContent = "Scan failed. Showing last available cache (if exists).";
+                    }}
 
-                populateProducts(obj.data || {});
-                })
-                .catch(() => {
-                status.textContent = "Scan failed.";
-                });
-            }
+                    populateProducts(obj.data || {{}});
+                  }})
+                  .catch(() => {{
+                    status.textContent = "Scan failed.";
+                  }});
+            }}
 
             document.getElementById('refreshBtn').addEventListener('click', refreshScan);
 
-            // On page load
             loadCached();
         </script>
         """
     return page_html("Products - LAB", body)
 
 
-# ----------------------------
-# PRODUCTS - LAB API (Cached)
-# ----------------------------
-@app.get("/api/products-lab/cached")
+@app.get(f"{PORTAL_API_PREFIX}/products-lab/cached")
 def products_lab_cached():
     scanned_at = PRODUCTS_LAB_CACHE["scanned_at"]
     return JSONResponse({
@@ -820,10 +855,7 @@ def products_lab_cached():
     })
 
 
-# ----------------------------
-# PRODUCTS - LAB API (Scan)
-# ----------------------------
-@app.get("/api/products-lab/scan")
+@app.get(f"{PORTAL_API_PREFIX}/products-lab/scan")
 def products_lab_scan(force: int = 0):
     if not force:
         scanned_at = PRODUCTS_LAB_CACHE["scanned_at"]
@@ -857,7 +889,6 @@ def download_hw_tools():
     if not HW_TOOLS_RELEASE_DIR.exists() or not HW_TOOLS_RELEASE_DIR.is_dir():
         raise HTTPException(404, "HW Tools Release folder not found")
 
-    # create temp zip
     tmp_dir = Path(tempfile.mkdtemp())
     zip_path = tmp_dir / HW_TOOLS_RELEASE_ZIP_NAME
 
@@ -882,11 +913,10 @@ def hw_tools_page():
     return page_html("HW Tools", f"""
       <div class="muted">
         <div><b>Package:</b> PacketLight Documentation Hub Release</div>
-        <div><b>Source:</b> \\\\vs1\PacketLight\PacketLight Documentation Hub\GUI\Release</div>
+        <div><b>Source:</b> \\\\vs1\\PacketLight\\PacketLight Documentation Hub\\GUI\\Release</div>
         <div><b>Creator:</b> {PACKETLIGHT_DOCUMENTATION_HUB_CREATOR}</div>
       </div>
       <div class="actions" style="margin-top:14px">
         <a class="btn" href="/download/hw-tools">⬇ Download Release (ZIP)</a>
       </div>
     """)
-

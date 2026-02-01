@@ -1,0 +1,12 @@
+Backend side:
+
+open terminal on G:\Yuval_Dahan\Portal\PL_Portal\GUIQC\backend
+write: 
+.\venv\Scripts\activate
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8001
+
+
+
+Frontend side:
+open terminal on G:\Yuval_Dahan\Portal\PL_Portal\GUIQC\frontend
+write: npm run dev

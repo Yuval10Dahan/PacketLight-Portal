@@ -251,3 +251,35 @@ body::before {
   font-size: 12px;
   color: rgba(233, 238, 252, 0.75);
 }
+
+/* =========================================================
+   SW TEST PROGRESS (GUIQC) - WIDE MODE
+========================================================= */
+
+/* Break the 980px cap only on this page */
+body:has(.swtp-page) .wrap {
+  max-width: 98vw;
+}
+
+/* Make the iframe container wide */
+.swtp-page .swtp-wide {
+  width: min(1600px, 98vw);
+  max-width: 98vw;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0;           /* already inline, but keep here too */
+  overflow: hidden;     /* keep rounded corners */
+}
+
+/* Optional: remove extra spacing around the card on this page */
+.swtp-page .swtp-wide.card {
+  margin-top: 12px;
+}
+
+/* Mobile safety */
+@media (max-width: 900px) {
+  .swtp-page .swtp-wide {
+    width: 98vw;
+    max-width: 98vw;
+  }
+}
